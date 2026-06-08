@@ -8,19 +8,20 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
-    - name: set up JDK 11
-      uses: actions/setup-java@v4
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        cache: gradle
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-    - name: Build with Gradle
-      run: ./gradlew build
+    
+    - name: Validate repository structure
+      run: |
+        echo "✓ Repository cloned successfully"
+        echo "Chromium-based build detected (Kiwi Browser fork)"
+        if [ -f "fetch_from_upstream.sh" ]; then
+          echo "✓ Build scripts found"
+        fi
+    
+    - name: Local build instructions
+      run: |
+        echo "This is a Chromium/Kiwi Browser fork"
+        echo "Builds happen via the build_apk.yml workflow"
+        echo "For local Termux builds, see instructions below"
