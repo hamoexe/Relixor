@@ -1,3 +1,4 @@
+name=build_apk.yml
 # Build APKs for Kiwi Browser Next
 name: 'Any branch: Build APK'
 
@@ -20,23 +21,36 @@ jobs:
       - name: Get branch name
         id: branch-name
         uses: tj-actions/branch-names@v4.8
+      
+      - name: Check BUILD_KEY secret
+        id: check-secret
+        run: |
+          if [ -z "${{ secrets.BUILD_KEY }}" ]; then
+            echo "has_build_key=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_build_key=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: ⚠️ BUILD_KEY not configured
+        if: steps.check-secret.outputs.has_build_key == 'false'
+        run: echo "⚠️ WARNING: BUILD_KEY secret is not configured. APK build will be skipped. To enable builds, set the BUILD_KEY secret in repository settings."
     
       - name: Building APK (if manually triggered)
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.check-secret.outputs.has_build_key == 'true'
         run: curl --http1.0 --no-buffer -s 'http://longbuild.find.kiwi/build_apk.php?build_key=${{ secrets.BUILD_KEY }}&git_user=${{ github.repository_owner }}&git_repository=${{ github.event.repository.name }}&git_runid=${{ github.run_id }}&git_branch=${{ steps.branch-name.outputs.current_branch }}'
 
       # Variables are from: https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#pullrequestevent
       # and https://docs.github.com/en/rest/reference/pulls
       - name: Building APK (if pull request)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.check-secret.outputs.has_build_key == 'true'
         run: curl --http1.0 --no-buffer -s 'http://longbuild.find.kiwi/build_apk.php?build_key=${{ secrets.BUILD_KEY }}&git_user=${{ github.event.pull_request.head.repo.owner.login }}&git_repository=${{ github.event.pull_request.head.repo.name }}&git_runid=${{ github.run_id }}&git_branch=${{ github.event.pull_request.head.ref }}'
 
       - name: Downloading APK
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.check-secret.outputs.has_build_key == 'true'
         run: wget -q 'https://build.find.kiwi/apks/${{ github.run_id }}/out.apk'
 
       - name: Creating release
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.check-secret.outputs.has_build_key == 'true'
         id: create_release
         uses: actions/create-release@v1.1.4
         env:
@@ -50,7 +64,7 @@ jobs:
             This is a test build initiated by ${{ github.actor }}.
 
       - name: Uploading test apk (arm64)
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.check-secret.outputs.has_build_key == 'true'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -61,5 +75,5 @@ jobs:
           asset_content_type: application/vnd.android.package-archive
 
       - name: Displaying download link
+        if: steps.check-secret.outputs.has_build_key == 'true'
         run: echo "Build can be downloaded at https://build.find.kiwi/apks/${{ github.run_id }}/out.apk"
-
